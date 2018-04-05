@@ -1,0 +1,316 @@
+
+
+MainActivity (GET Web-Service) 
+===============================
+package com.example.win10.headlines;
+
+import android.app.ProgressDialog;
+import android.os.AsyncTask;
+import android.support.v7.app.AppCompatActivity;
+import android.os.Bundle;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.SwitchCompat;
+import android.util.Log;
+import android.widget.Toast;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.ArrayList;
+
+public class MainActivity extends AppCompatActivity {
+    ArrayList<NewsModel> list = new ArrayList<>();
+    NewsAdapter myVehicleAdapter;
+    RecyclerView recyclerView;
+    SwitchCompat switchNight;
+    PreferenceManager pm;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        new HttpGetRequest().execute();
+
+        recyclerView = findViewById(R.id.recycler);
+        switchNight=findViewById(R.id.switchNightMode);
+        recyclerView.setLayoutManager(new LinearLayoutManager(MainActivity.this, LinearLayoutManager.VERTICAL, false));
+
+
+    }
+
+    public class HttpGetRequest extends AsyncTask<String, Void, String> {
+
+        ProgressDialog progressDialog = new ProgressDialog(MainActivity.this);
+
+        public static final String REQUEST_METHOD = "GET";
+        public static final int READ_TIMEOUT = 15000;
+        public static final int CONNECTION_TIMEOUT = 15000;
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+
+            progressDialog.setTitle("please wait...!!!");
+            progressDialog.setCancelable(false);
+            progressDialog.show();
+        }
+
+        @Override
+        protected String doInBackground(String... params) {
+            String stringUrl = "\n" +
+                    "https://newsapi.org/v2/top-headlines?country=in&apiKey=2a3bce5713494ef98b7dd8cc5a72ba54";
+            String result;
+            String inputLine;
+            try {
+                //Create a URL object holding our url
+                URL myUrl = new URL(stringUrl);
+                //Create a connection
+                HttpURLConnection connection = (HttpURLConnection)
+                        myUrl.openConnection();
+                //Set methods and timeouts
+                connection.setRequestMethod(REQUEST_METHOD);
+                connection.setReadTimeout(READ_TIMEOUT);
+                connection.setConnectTimeout(CONNECTION_TIMEOUT);
+
+                //Connect to our url
+                connection.connect();
+                //Create a new InputStreamReader
+                InputStreamReader streamReader = new
+                        InputStreamReader(connection.getInputStream());
+                //Create a new buffered reader and String Builder
+                BufferedReader reader = new BufferedReader(streamReader);
+                StringBuilder stringBuilder = new StringBuilder();
+                //Check if the line we are reading is not null
+                while ((inputLine = reader.readLine()) != null) {
+                    stringBuilder.append(inputLine);
+                }
+                //Close our InputStream and Buffered reader
+                reader.close();
+                streamReader.close();
+                //Set our result equal to our stringBuilder
+                result = stringBuilder.toString();
+            } catch (IOException e) {
+                e.printStackTrace();
+                result = null;
+            }
+            return result;
+        }
+
+        protected void onPostExecute(String result) {
+            super.onPostExecute(result);
+
+            progressDialog.dismiss();
+
+            try {
+
+                if (result == null)
+                   return;
+
+
+                JSONObject jsonObject = new JSONObject(result);
+                if (jsonObject.getString("status").equalsIgnoreCase("ok")) {
+                    JSONArray jsonArray = jsonObject.getJSONArray("articles");
+                    for (int i = 0; i < jsonArray.length(); i++) {
+
+                        NewsModel newsModel = new NewsModel();
+
+                        JSONObject json = jsonArray.getJSONObject(i);
+                        JSONObject innerJson = json.getJSONObject("source");
+                        innerJson.getString("id");
+
+                        String title = json.getString("title");
+                        String description = json.getString("description");
+                        String url = json.getString("url");
+                        String imgUrl = json.getString("urlToImage");
+                        json.getString("publishedAt");
+                        newsModel.setTitle(title);
+                        newsModel.setDescription(description);
+                        newsModel.setUrl(url);
+                        newsModel.setImgUrl(imgUrl);
+
+                        list.add(newsModel);
+
+                        Log.e("aaa", "title==>" + json.getString("title") + "\n" +
+                                "description==>" + json.getString("description") + "n" +
+                                "url==>" + json.getString("url") + "\n" +
+                                "urlToImage==>" + json.getString("urlToImage") + "\n" +
+                                "Publish At==>" + json.getString("publishedAt"));
+
+                    }
+
+                    myVehicleAdapter = new NewsAdapter(MainActivity.this, list);
+                    recyclerView.setAdapter(myVehicleAdapter);
+                    myVehicleAdapter.notifyDataSetChanged();
+                } else {
+
+                    Toast.makeText(MainActivity.this, "Please Check your Connection", Toast.LENGTH_SHORT).show();
+                }
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+
+        }
+    }
+}
+
+
+===========================================================================================================
+
+
+NewsAdapter
+============
+
+
+package com.example.win10.headlines;
+
+import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
+import android.support.v7.widget.RecyclerView;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ImageView;
+import android.widget.TextView;
+
+import com.squareup.picasso.Picasso;
+
+import java.util.ArrayList;
+
+/**
+ * Created by win10 on 01-03-2018.
+ */
+
+
+public class NewsAdapter extends RecyclerView.Adapter<NewsAdapter.MyViewHolder> {
+
+    public ArrayList<NewsModel> newslist;
+    private Context context;
+
+    public NewsAdapter(Context context, ArrayList<NewsModel> newslist) {
+        this.newslist = newslist;
+        this.context = context;
+    }
+
+    public class MyViewHolder extends RecyclerView.ViewHolder {
+        ImageView image;
+        TextView title,description,more;
+
+        public MyViewHolder(View view) {
+            super(view);
+          image = view.findViewById(R.id.image);
+          title = view.findViewById(R.id.tvTitle);
+          description = view.findViewById(R.id.description);
+          more = view.findViewById(R.id.more);
+
+        }
+    }
+
+
+    @Override
+    public MyViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+        View itemView = LayoutInflater.from(parent.getContext()).inflate(R.layout.custom_recycler, parent, false);
+        return new MyViewHolder(itemView);
+
+
+    }
+
+    @Override
+    public void onBindViewHolder(final MyViewHolder holder, final int position) {
+
+      /*  MyVehicleModel myVehicleModel = newslist.get(position);
+        holder.lastServiceDate.setText(myVehicleModel.getLastService());
+        holder.carModel.setText(myVehicleModel.getModel());
+        holder.fuelType.setText(myVehicleModel.getFuelType());
+        holder.upComingServiceDate.setText("-");
+        holder.totalKm.setText(myVehicleModel.getTotalKm().toString());
+        holder.vehicleNumber.setText(myVehicleModel.getVehicleNumber());
+        Glide.with(context)
+                .load(myVehicleModel.getBrandLogoId())
+                .apply(RequestOptions.circleCropTransform().circleCrop())
+                .into(holder.imageView);*/
+
+      final NewsModel newsModel = newslist.get(position);
+      holder.title.setText(newsModel.getTitle());
+      holder.description.setText(newsModel.getDescription());
+
+        Picasso.with(context)
+                .load(newsModel.getImgUrl()).fit()
+                .into(holder.image);
+
+        holder.more.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent i = new Intent(Intent.ACTION_VIEW,
+                        Uri.parse(newsModel.getUrl()));
+              context.startActivity(i);
+            }
+        });
+
+    }
+
+    @Override
+    public int getItemCount() {
+        return newslist.size();
+    }
+}
+
+===========================================================================================================
+
+
+NewsModel
+---------
+
+package com.example.win10.headlines;
+
+/**
+ * Created by win10 on 25-02-2018.
+ */
+
+class NewsModel {
+
+    private String title;
+    private String description;
+    private String url;
+    private String imgUrl;
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getUrl() {
+        return url;
+    }
+
+    public void setUrl(String url) {
+        this.url = url;
+    }
+
+    public String getImgUrl() {
+        return imgUrl;
+    }
+
+    public void setImgUrl(String imgUrl) {
+        this.imgUrl = imgUrl;
+    }
+}
+
